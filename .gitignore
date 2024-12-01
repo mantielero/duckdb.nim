@@ -1,0 +1,10 @@
+nimcache/
+src/testresults/
+testresults/
+examples/*
+src/duckdb/wrapper
+tests/*
+
+!examples/*.nim
+!tests/config.nims
+!tests/**/*.nim
