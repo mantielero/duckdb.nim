@@ -28,17 +28,3 @@ duckdb_destroy_result(res.addr)
 duckdb_disconnect(conn.addr)
 duckdb_close(db.addr)
 
-#[
-
-    // Mostrar el resultado
-    const char *mensaje = duckdb_value_varchar(&result, 0, 0);
-    printf("Resultado: %s\n", mensaje);
-
-    // Liberar recursos
-    duckdb_destroy_result(&result);
-    duckdb_disconnect(&con);
-    duckdb_close(&db);
-
-    return 0;
-}
-]#
