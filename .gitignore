@@ -3,8 +3,10 @@ src/testresults/
 testresults/
 examples/*
 src/duckdb/wrapper
-tests/*
+tests/basic/*
+tests/types/*
 
 !examples/*.nim
 !tests/config.nims
-!tests/**/*.nim
+!tests/basic/*.nim
+!tests/types/*.nim
