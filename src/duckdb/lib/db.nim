@@ -1,6 +1,7 @@
 # https://duckdb.org/docs/api/c/connect
 import ../wrapper/libduckdb
 import typs,errors
+import bigints
 
 proc newDb*(path:string = ""):DuckDb =
   ## Creates a new database or opens an existing database file stored at the given path. 
@@ -97,6 +98,14 @@ proc toInt32*(res:DuckDbResult; col:int = 0; row:int = 0):int32 =
 
 proc toInt64*(res:DuckDbResult; col:int = 0; row:int = 0):int64 =
   duckdb_value_int64(res.handle.addr, col.uint64, row.uint64).int64
+
+proc toHugeInt*(res:DuckDbResult; col:int = 0; row:int = 0): BigInt=
+  var tmp = duckdb_value_hugeint(res.handle.addr, col.uint64, row.uint64)
+  if tmp.upper < 0:
+    return initBigInt(tmp.upper).shl(64) - initBigInt(tmp.lower)
+  else:
+    return initBigInt(tmp.upper).shl(64) + initBigInt(tmp.lower)
+
 
 proc toUint8*(res:DuckDbResult; col:int = 0; row:int = 0):uint8 =
   duckdb_value_uint8(res.handle.addr, col.uint64, row.uint64).uint8
