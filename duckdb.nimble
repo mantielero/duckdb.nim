@@ -12,4 +12,4 @@ srcDir        = "src"
 requires "nim >= 2.0.0"
 
 task test, "Testing DuckDB":
-  exec "testament pattern tests/**/*.nim"
+  exec """testament pattern "tests/**/*.nim""""
