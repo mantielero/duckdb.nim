@@ -134,12 +134,6 @@ proc toFloat64*(res:DuckDbResult; col:int = 0; row:int = 0):float64 =
 
 #[
 
-proc duckdb_value_hugeint*(result: ptr duckdb_result; col: idx_t; row: idx_t): duckdb_hugeint {.
-    cdecl, importc: "duckdb_value_hugeint".}
-
-proc duckdb_value_uhugeint*(result: ptr duckdb_result; col: idx_t; row: idx_t): duckdb_uhugeint {.
-    cdecl, importc: "duckdb_value_uhugeint".}
-
 proc duckdb_value_decimal*(result: ptr duckdb_result; col: idx_t; row: idx_t): duckdb_decimal {.
     cdecl, importc: "duckdb_value_decimal".}
 
@@ -159,38 +153,3 @@ proc duckdb_value_is_null*(result: ptr duckdb_result; col: idx_t; row: idx_t): b
     cdecl, importc: "duckdb_value_is_null".}
 ]#
 
-
-
-
-#[
-
-// Imprimir el tipo según su valor
-switch (column_type) {
-    case DUCKDB_TYPE_INTEGER:
-        printf("INTEGER\n");
-        break;
-    case DUCKDB_TYPE_VARCHAR:
-        printf("VARCHAR\n");
-        break;
-    case DUCKDB_TYPE_DOUBLE:
-        printf("DOUBLE\n");
-        break;
-    case DUCKDB_TYPE_FLOAT:
-        printf("FLOAT\n");
-        break;
-    case DUCKDB_TYPE_BIGINT:
-        printf("BIGINT\n");
-        break;
-    case DUCKDB_TYPE_SMALLINT:
-        printf("SMALLINT\n");
-        break;
-    case DUCKDB_TYPE_BOOLEAN:
-        printf("BOOLEAN\n");
-        break;
-    case DUCKDB_TYPE_DATE:
-        printf("DATE\n");
-        break;
-    default:
-        printf("UNKNOWN\n");
-        break;
-]#
