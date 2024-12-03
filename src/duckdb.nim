@@ -4,5 +4,9 @@
 import duckdb/wrapper/libduckdb
 export libduckdb
 
+import bigints
+export bigints
+
 import duckdb/lib/[version, typs, db, appender,vectors]
 export version, typs,db, appender, vectors
+
