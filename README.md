@@ -27,17 +27,17 @@ nimble test
 ### ToDo - Data Types
 #### [Numeric Types](https://duckdb.org/docs/sql/data_types/numeric.html)
 ##### [Integer Types](https://duckdb.org/docs/sql/data_types/numeric.html#integer-types)
-- [ ] DUCKDB_TYPE_TINYINT: int8
-- [ ] DUCKDB_TYPE_SMALLINT: int16
-- [ ] DUCKDB_TYPE_INTEGER: int32
-- [ ] DUCKDB_TYPE_BIGINT: int64
-- [ ] DUCKDB_TYPE_HUGEINT: (import bigint?) int128
+- [X] DUCKDB_TYPE_TINYINT: int8
+- [X] DUCKDB_TYPE_SMALLINT: int16
+- [X] DUCKDB_TYPE_INTEGER: int32
+- [X] DUCKDB_TYPE_BIGINT: int64
+- [X] DUCKDB_TYPE_HUGEINT: BigInt
 
-- [ ] DUCKDB_TYPE_UTINYINT: uint8
-- [ ] DUCKDB_TYPE_USMALLINT: uint16
-- [ ] DUCKDB_TYPE_UINTEGER: uint32
-- [ ] DUCKDB_TYPE_UBIGINT: uint64
-- [ ] DUCKDB_TYPE_UHUGEINT: (import bigint?) int128
+- [X] DUCKDB_TYPE_UTINYINT: uint8
+- [X] DUCKDB_TYPE_USMALLINT: uint16
+- [X] DUCKDB_TYPE_UINTEGER: uint32
+- [X] DUCKDB_TYPE_UBIGINT: uint64
+- [X] DUCKDB_TYPE_UHUGEINT: BigInt [pending issue](https://github.com/duckdb/duckdb/issues/15012)
 
 ##### [Floating Point Types](https://duckdb.org/docs/sql/data_types/numeric.html#floating-point-types)
 - [ ] DUCKDB_TYPE_FLOAT
@@ -49,7 +49,8 @@ nimble test
 
 #### Other
 - [ ] DUCKDB_TYPE_INVALID
-- [ ] DUCKDB_TYPE_BOOLEAN
+- [X] DUCKDB_TYPE_BOOLEAN
+
 ##### Bit
 - [ ] DUCKDB_TYPE_BIT
 
@@ -67,7 +68,7 @@ nimble test
 - [ ] DUCKDB_TYPE_TIMESTAMP_TZ
 
 ##### String
-- [ ] DUCKDB_TYPE_VARCHAR
+- [X] DUCKDB_TYPE_VARCHAR
 
 
 
