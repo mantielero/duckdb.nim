@@ -5,6 +5,12 @@ https://duckdb.org/docs/api/c/overview
 ## Introduction
 See the examples.
 
+## Testing
+Just run:
+```sh
+nimble test
+```
+
 ## Status
 - [Connect](https://duckdb.org/docs/api/c/connect): basic
 - [Configuration](https://duckdb.org/docs/api/c/config): not started
