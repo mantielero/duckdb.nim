@@ -27,74 +27,72 @@ nimble test
 ### ToDo - Data Types
 #### [Numeric Types](https://duckdb.org/docs/sql/data_types/numeric.html)
 ##### [Integer Types](https://duckdb.org/docs/sql/data_types/numeric.html#integer-types)
-- [X] DUCKDB_TYPE_TINYINT: int8
-- [X] DUCKDB_TYPE_SMALLINT: int16
-- [X] DUCKDB_TYPE_INTEGER: int32
-- [X] DUCKDB_TYPE_BIGINT: int64
-- [X] DUCKDB_TYPE_HUGEINT: BigInt
+- [X] TINYINT: int8
+- [X] SMALLINT: int16
+- [X] INTEGER: int32
+- [X] BIGINT: int64
+- [X] HUGEINT: BigInt
 
-- [X] DUCKDB_TYPE_UTINYINT: uint8
-- [X] DUCKDB_TYPE_USMALLINT: uint16
-- [X] DUCKDB_TYPE_UINTEGER: uint32
-- [X] DUCKDB_TYPE_UBIGINT: uint64
-- [X] DUCKDB_TYPE_UHUGEINT: BigInt [pending issue](https://github.com/duckdb/duckdb/issues/15012)
+- [X] UTINYINT: uint8
+- [X] USMALLINT: uint16
+- [X] UINTEGER: uint32
+- [X] UBIGINT: uint64
+- [X] UHUGEINT: BigInt [pending issue](https://github.com/duckdb/duckdb/issues/15012)
 
 ##### [Floating Point Types](https://duckdb.org/docs/sql/data_types/numeric.html#floating-point-types)
-- [ ] DUCKDB_TYPE_FLOAT
-- [ ] DUCKDB_TYPE_DOUBLE
+- [X] FLOAT
+- [X] DOUBLE
+
+##### Decimal - fixed point
+- [ ] DECIMAL: see [fixed_point.nim](https://gist.github.com/planetis-m/c13529cac44b4a9de3f073de502315ee)
 
 ##### [Universally Unique Identifiers (UUIDs)](https://duckdb.org/docs/sql/data_types/numeric.html#universally-unique-identifiers-uuids)
-- [ ] DUCKDB_TYPE_UUID
+- [ ] UUID
 
 
 #### Other
-- [ ] DUCKDB_TYPE_INVALID
-- [X] DUCKDB_TYPE_BOOLEAN
+- [ ] INVALID
+- [X] BOOLEAN
 
 ##### Bit
-- [ ] DUCKDB_TYPE_BIT
+- [ ] BIT
 
 ##### Dates
-- [ ] DUCKDB_TYPE_TIMESTAMP
-- [ ] DUCKDB_TYPE_DATE
-- [ ] DUCKDB_TYPE_TIME
-- [ ] DUCKDB_TYPE_INTERVAL
+- [X] TIMESTAMP
+- [X] DATE
+- [ ] TIME
+- [ ] INTERVAL
 
-- [ ] DUCKDB_TYPE_TIMESTAMP_S
-- [ ] DUCKDB_TYPE_TIMESTAMP_MS
-- [ ] DUCKDB_TYPE_TIMESTAMP_NS
+- [ ] TIMESTAMP_S
+- [ ] TIMESTAMP_MS
+- [ ] TIMESTAMP_NS
 
-- [ ] DUCKDB_TYPE_TIME_TZ
-- [ ] DUCKDB_TYPE_TIMESTAMP_TZ
+- [ ] TIME_TZ
+- [ ] TIMESTAMP_TZ
 
-##### String
-- [X] DUCKDB_TYPE_VARCHAR
-
-
-
-##### Blob
-- [ ] DUCKDB_TYPE_BLOB
-
-##### Decimal?
-- [ ] DUCKDB_TYPE_DECIMAL
+#### String
+- [X] VARCHAR
 
 
+#### Blob
+- [ ] BLOB
 
-##### Enum
-- [ ] DUCKDB_TYPE_ENUM
 
-##### List
-- [ ] DUCKDB_TYPE_LIST
+#### Enum
+- [ ] ENUM
 
-##### Struct
-- [ ] DUCKDB_TYPE_STRUCT
+#### List
+- [ ] LIST
 
-##### Map
-- [ ] DUCKDB_TYPE_MAP
+#### Struct
+- [ ] STRUCT
 
-##### Array
-- [ ] DUCKDB_TYPE_ARRAY
+#### Map
+- [ ] MAP
 
-##### Union
-- [ ] DUCKDB_TYPE_UNION
+#### Array
+- [ ] ARRAY
+
+#### Union
+- [ ] UNION
 
