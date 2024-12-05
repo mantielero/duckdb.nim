@@ -10,6 +10,7 @@ proc toDate*(res:DuckDbResult; col:int = 0; row:int = 0):DateTime =
 
 proc toTimeStamp*(res:DuckDbResult; col:int = 0; row:int = 0):DateTime =
   let ts = duckdb_value_timestamp(res.handle.addr, col.uint64, row.uint64)
+  echo repr ts
   return dateTime(1970, 1.Month,1.MonthdayRange, zone=utc()) + ts.micros.microseconds
 
 
@@ -24,7 +25,7 @@ proc toInterval*(res:DuckDbResult; col:int = 0; row:int = 0):TimeInterval =
   return initTimeInterval( microseconds = interval.micros.int,  
                            days         = interval.days.int, 
                            months       = interval.months.int)  
-  #return  interval.months.months + interval.days.days + interval.micros.microseconds #omUnixFloat(t.micros.float / 1000000.0 )
+
 
 #[
   struct_duckdb_interval* {.pure, inheritable, bycopy.} = object
