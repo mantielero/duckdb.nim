@@ -60,8 +60,8 @@ nimble test
 ##### Dates
 - [X] TIMESTAMP
 - [X] DATE
-- [ ] TIME
-- [ ] INTERVAL
+- [X] TIME
+- [X] INTERVAL
 
 - [ ] TIMESTAMP_S
 - [ ] TIMESTAMP_MS
