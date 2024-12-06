@@ -283,6 +283,38 @@ iterator getUints*(res:DbResult; column:int):Option[uint64] =
 # TODO: iterators specific for INT8, INT16, INY32, UINT8. UINT16, UINT32
 
 
+iterator getFloats*(res:DbResult; column:int):Option[float64] =
+  ## iterates over all the floats in a result casting them into float64
+  for chunk in res.chunks:
+    let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+    assert column < nCols
+    
+    let n = chunk.getSize() 
+
+    let vector = new DuckDbVector
+    vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+    let typ = vector.getColumnType
+    let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+    let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+    case typ
+    of DUCKDB_TYPE_FLOAT:
+      let arr = cast[ptr UncheckedArray[float32]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some(arr[i].float64)
+        else:
+          yield none(float64)
+    of DUCKDB_TYPE_DOUBLE:
+      let arr = cast[ptr UncheckedArray[float64]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some(arr[i].float64)
+        else:
+          yield none(float64)
+    else:  # TODO: to consider all the others INTEGER types
+      raise newException(ValueError, "type not supported: " & $typ)
+
+
 iterator getStrings*(res:DbResult; column:int):Option[string] =
   ## iterates over all the unsigned integers in a result casting them into uint64  
   for chunk in res.chunks:
@@ -338,57 +370,57 @@ iterator getStrings*(res:DbResult; column:int):Option[string] =
 #-----------
 
 # Itereate over specific columns' types =======================================================
-iterator getItemsAsInt64*(res: DuckDbResult; col:int):Option[int64] =
-  while true:
-    var chunk = res.fetchChunk  
-    if chunk.isExhausted:
-      break
+# iterator getItemsAsInt64*(res: DuckDbResult; col:int):Option[int64] =
+#   while true:
+#     var chunk = res.fetchChunk  
+#     if chunk.isExhausted:
+#       break
     
     
-    var vector = chunk.getVector(col)
-    var vectorTyp = vector.getColumnType
-    assert vectorTyp == DUCKDB_TYPE_BIGINT
-    let vectorData = duckdb_vector_get_data(vector.handle)
-    let vectorValidity = duckdb_vector_get_validity(vector.handle)
+#     var vector = chunk.getVector(col)
+#     var vectorTyp = vector.getColumnType
+#     assert vectorTyp == DUCKDB_TYPE_BIGINT
+#     let vectorData = duckdb_vector_get_data(vector.handle)
+#     let vectorValidity = duckdb_vector_get_validity(vector.handle)
 
-    let vectorDataArray = cast[ptr UncheckedArray[int64]](vectorData)
-    for row in 0..<chunk.getSize():
-      if duckdb_validity_row_is_valid(vectorValidity, row.uint64):
-        #echo cast[ptr UncheckedArray[int64]](vectorData)[0]
-        yield some(vectorDataArray[row])
-      else:
-        yield none(int64)
-    duckdb_destroy_data_chunk(chunk.handle.addr)
+#     let vectorDataArray = cast[ptr UncheckedArray[int64]](vectorData)
+#     for row in 0..<chunk.getSize():
+#       if duckdb_validity_row_is_valid(vectorValidity, row.uint64):
+#         #echo cast[ptr UncheckedArray[int64]](vectorData)[0]
+#         yield some(vectorDataArray[row])
+#       else:
+#         yield none(int64)
+#     duckdb_destroy_data_chunk(chunk.handle.addr)
 
-iterator getItemsAsString*(res: DuckDbResult; col:int):Option[string] =
-  while true:
-    var chunk = res.fetchChunk  
-    if chunk.isExhausted:
-      #echo "result is exhausted"
-      break
+# iterator getItemsAsString*(res: DuckDbResult; col:int):Option[string] =
+#   while true:
+#     var chunk = res.fetchChunk  
+#     if chunk.isExhausted:
+#       #echo "result is exhausted"
+#       break
     
-    var vector = chunk.getVector(col)
-    var vectorTyp = vector.getColumnType
-    assert vectorTyp == DUCKDB_TYPE_VARCHAR
-    let vectorData = duckdb_vector_get_data(vector.handle)
-    let vectorValidity = duckdb_vector_get_validity(vector.handle)
+#     var vector = chunk.getVector(col)
+#     var vectorTyp = vector.getColumnType
+#     assert vectorTyp == DUCKDB_TYPE_VARCHAR
+#     let vectorData = duckdb_vector_get_data(vector.handle)
+#     let vectorValidity = duckdb_vector_get_validity(vector.handle)
 
-    let vectorDataArray = cast[ptr UncheckedArray[duckdb_string_t]](vectorData)  # duckdb_string_t
-    for row in 0..<chunk.getSize():
-      if duckdb_validity_row_is_valid(vectorValidity, row.uint64):
-        if duckdb_string_is_inlined(vectorDataArray[row]): # inline
-          let pInlined = vectorDataArray[row].value.inlined.inlined
-          yield some($cast[cstring](unsafeAddr(pInlined[0])))
-        else:
-          let n = vectorDataArray[row].value.pointer_field.length
-          #echo n
-          var tmp = $cast[cstring](vectorDataArray[row].value.pointer_field.ptr_field)
-          setLen(tmp, n)
-          yield some(tmp)
+#     let vectorDataArray = cast[ptr UncheckedArray[duckdb_string_t]](vectorData)  # duckdb_string_t
+#     for row in 0..<chunk.getSize():
+#       if duckdb_validity_row_is_valid(vectorValidity, row.uint64):
+#         if duckdb_string_is_inlined(vectorDataArray[row]): # inline
+#           let pInlined = vectorDataArray[row].value.inlined.inlined
+#           yield some($cast[cstring](unsafeAddr(pInlined[0])))
+#         else:
+#           let n = vectorDataArray[row].value.pointer_field.length
+#           #echo n
+#           var tmp = $cast[cstring](vectorDataArray[row].value.pointer_field.ptr_field)
+#           setLen(tmp, n)
+#           yield some(tmp)
 
-      else:
-        yield none(string)
-    duckdb_destroy_data_chunk(chunk.handle.addr)    
+#       else:
+#         yield none(string)
+#     duckdb_destroy_data_chunk(chunk.handle.addr)    
 
 proc getChild(vector:DuckDbVector; col:Natural):DuckDbVector =
   result = new DuckDbVector
