@@ -80,9 +80,36 @@ nimble test
 
 #### Enum
 - [ ] ENUM
+  - [X] UTINYINT: probably sufficient for most of the cases
 
 #### List
-- [ ] LIST
+- [ ] LIST: Variable length sequence with a fixed type:
+  - [X] TINYINT
+  - [X] SMALLINT
+  - [X] INTEGER
+  - [X] BIGINT
+  - [ ] UTINYINT
+  - [ ] USMALLINT
+  - [ ] UINTEGER
+  - [ ] UBIGINT
+  - [ ] FLOAT
+  - [ ] DOUBLE
+  - [ ] VARCHAR
+  - [ ] ... 
+#### Array
+- [ ] ARRAY: fixed length sequence with a fixed type:
+  - [X] TINYINT
+  - [X] SMALLINT
+  - [X] INTEGER
+  - [X] BIGINT
+  - [ ] UTINYINT
+  - [ ] USMALLINT
+  - [ ] UINTEGER
+  - [ ] UBIGINT
+  - [ ] FLOAT
+  - [ ] DOUBLE
+  - [ ] VARCHAR
+  - [ ] ... 
 
 #### Struct
 - [ ] STRUCT
@@ -90,8 +117,6 @@ nimble test
 #### Map
 - [ ] MAP
 
-#### Array
-- [ ] ARRAY
 
 #### Union
 - [ ] UNION

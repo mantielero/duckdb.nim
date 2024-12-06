@@ -673,11 +673,72 @@ iterator getSeqsInts*(res:DbResult; column:int):Option[seq[Option[int]]] =
       raise newException(ValueError, "type not supported: " & $typ)
 
 #-----
+# proc getEnumValues*(res:DbResult; column:int):seq[string] =
+#   ## iterates over all the floats in a result casting them into float64
+#   for chunk in res.chunks:
+#     let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+#     assert column < nCols
+    
+#     let n = chunk.getSize() 
 
+#     let vector = new DuckDbVector
+#     vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+#     let typ = vector.getColumnType
+#     let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+#     let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+
+#     let vectorLogicalType = duckdb_vector_get_column_type(vector.handle)
+#     let enumTyp = duckdb_enum_internal_type(vectorLogicalType)
+#     let enumSize = duckdb_enum_dictionary_size(vectorLogicalType).int
+#     result = @[]
+#     for idx in 0..<enumSize:
+#       var nameAddress = duckdb_enum_dictionary_value(vectorLogicalType, idx)
+#       var tmp = cast[cstring](nameAddress)
+#       result &= $tmp
+
+
+iterator getEnums*(res:DbResult; column:int):Option[tuple[idx:uint;value:string]] =
+  ## iterates over all the floats in a result casting them into float64
+  for chunk in res.chunks:
+    let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+    assert column < nCols
+    
+    let n = chunk.getSize() 
+
+    let vector = new DuckDbVector
+    vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+    let typ = vector.getColumnType
+    let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+    let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+
+    let vectorLogicalType = duckdb_vector_get_column_type(vector.handle)
+    let enumTyp = duckdb_enum_internal_type(vectorLogicalType)
+    let enumSize = duckdb_enum_dictionary_size(vectorLogicalType).int
+    var items:seq[string] = @[]
+    for idx in 0..<enumSize:
+      var nameAddress = duckdb_enum_dictionary_value(vectorLogicalType, idx.idx_t)
+      var tmp = cast[cstring](nameAddress)
+      items &= $tmp
+    echo items
+    case typ
+    of DUCKDB_TYPE_ENUM:
+      let arr = cast[ptr UncheckedArray[uint8]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some((arr[i].uint, items[arr[i]]))
+          #let micros = arr[i].micros.float
+          #yield some(fromUnixFloat(micros / 1000000.0 ))
+        else:
+          yield none(tuple[idx:uint;value:string])
+
+    else:  # TODO: to consider all the others INTEGER types
+      raise newException(ValueError, "type not supported: " & $typ)
+
+#--------
 #[
-  struct_duckdb_list_entry* {.pure, inheritable, bycopy.} = object
-    offset*: uint64          ## Generated based on /usr/include/duckdb.h:347:9
-    length*: uint64
+
+uint32_t duckdb_enum_dictionary_size(duckdb_logical_type type);
+char *duckdb_enum_dictionary_value(duckdb_logical_type type, idx_t index);
 ]#
 
 #[
