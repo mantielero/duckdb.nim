@@ -44,6 +44,12 @@ echo res.toInterval(0,0).toParts[Microseconds]/1000_000
 echo (res.toInterval(0,1) - (2*3600*10^6).microseconds - (30*60*10^6).microseconds).toParts
 echo 2.hours.toParts
 echo res.toInterval(0,2).toParts[Days] 
-#var hours =  (tmp / 3600).int
-#echo hours
 
+
+# Timestamps
+conn.sql("CREATE TABLE tss(i TIMESTAMP_S);")
+conn.sql("INSERT INTO tss VALUES ('2023-01-01 10:00:00'), ('1992-09-20 11:30:00.123456'), (NULL);") 
+res = conn.sql("SELECT * FROM tss;")
+echo res.toTimeStamp(0,0)
+echo res.toTimeStamp(0,1)
+echo res.toTimeStamp(0,2)
