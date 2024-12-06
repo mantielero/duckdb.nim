@@ -462,11 +462,222 @@ iterator getTimeIntervals*(res:DbResult; column:int):Option[TimeInterval] =
     else:  # TODO: to consider all the others INTEGER types
       raise newException(ValueError, "type not supported: " & $typ)
 
+#-----
+iterator getSeqsInts*(res:DbResult; column:int):Option[seq[Option[int]]] =
+  ## iterates over all the floats in a result casting them into float64
+  for chunk in res.chunks:
+    let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+    assert column < nCols
+    
+    let n = chunk.getSize() 
+
+    let vector = new DuckDbVector
+    vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+    let typ = vector.getColumnType
+    let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+    let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+    case typ
+    of DUCKDB_TYPE_ARRAY:
+      #let arr = cast[ptr UncheckedArray[int8]](data)
+
+      let childVector = new DuckDbVector
+      childVector.handle = duckdb_list_vector_get_child(vector.handle)
+      let childTyp = childVector.getColumnType   
+      let childData = childVector.getData()#duckdb_vector_get_data(list_child);
+      let childValidity = childVector.getValidity() #duckdb_vector_get_validity(list_child);
+
+      let vectorLogicalType = duckdb_vector_get_column_type(vector.handle)# .duckdb_get_type_id
+      #let childType = duckdb_array_type_child_type(vectorLogicalType).duckdb_get_type_id
+      let arraySize = duckdb_array_type_array_size(vectorLogicalType).int
+      #echo childTyp
+      #echo childType
+      echo "SIZE: ", arraySize
+      
+      case childTyp
+      of DUCKDB_TYPE_TINYINT:
+        let childArray = cast[ptr UncheckedArray[int8]](childData)  
+        # let childVector = new DuckDbVector
+        # childVector.handle = duckdb_list_vector_get_child(vector.handle)
+        # let childTyp = childVector.getColumnType   
+        # let childData = childVector.getData()#duckdb_vector_get_data(list_child);
+        # let childValidity = childVector.getValidity() #duckdb_vector_get_validity(list_child);
+
+        # duckdb_array_type_child_type
+        # duckdb_array_type_array_size
+        for i in 0..<n:
+          if duckdb_validity_row_is_valid(validity, i.idx_t):          
+            var values:seq[Option[int]] = @[]
+            #echo arr[0]
+            for c in 0..<arraySize:
+              let idx = c + i*arraySize
+              #echo idx
+              if duckdb_validity_row_is_valid(childValidity, idx.idx_t):
+                values &= some(childArray[idx].int)
+              else:
+                values &= none(int)
+            yield some(values)
+          else:
+            yield none(seq[Option[int]])
+      of DUCKDB_TYPE_SMALLINT:
+        let childArray = cast[ptr UncheckedArray[int16]](childData)  
+        # let childVector = new DuckDbVector
+        # childVector.handle = duckdb_list_vector_get_child(vector.handle)
+        # let childTyp = childVector.getColumnType   
+        # let childData = childVector.getData()#duckdb_vector_get_data(list_child);
+        # let childValidity = childVector.getValidity() #duckdb_vector_get_validity(list_child);
+
+        # duckdb_array_type_child_type
+        # duckdb_array_type_array_size
+        for i in 0..<n:
+          if duckdb_validity_row_is_valid(validity, i.idx_t):          
+            var values:seq[Option[int]] = @[]
+            #echo arr[0]
+            for c in 0..<arraySize:
+              let idx = c + i*arraySize
+              #echo idx
+              if duckdb_validity_row_is_valid(childValidity, idx.idx_t):
+                values &= some(childArray[idx].int)
+              else:
+                values &= none(int)
+            yield some(values)
+          else:
+            yield none(seq[Option[int]])
+      of DUCKDB_TYPE_INTEGER:
+        let childArray = cast[ptr UncheckedArray[int32]](childData)  
+        # let childVector = new DuckDbVector
+        # childVector.handle = duckdb_list_vector_get_child(vector.handle)
+        # let childTyp = childVector.getColumnType   
+        # let childData = childVector.getData()#duckdb_vector_get_data(list_child);
+        # let childValidity = childVector.getValidity() #duckdb_vector_get_validity(list_child);
+
+        # duckdb_array_type_child_type
+        # duckdb_array_type_array_size
+        for i in 0..<n:
+          if duckdb_validity_row_is_valid(validity, i.idx_t):          
+            var values:seq[Option[int]] = @[]
+            #echo arr[0]
+            for c in 0..<arraySize:
+              let idx = c + i*arraySize
+              #echo idx
+              if duckdb_validity_row_is_valid(childValidity, idx.idx_t):
+                values &= some(childArray[idx].int)
+              else:
+                values &= none(int)
+            yield some(values)
+          else:
+            yield none(seq[Option[int]])
+      of DUCKDB_TYPE_BIGINT:
+        let childArray = cast[ptr UncheckedArray[int64]](childData)  
+        # let childVector = new DuckDbVector
+        # childVector.handle = duckdb_list_vector_get_child(vector.handle)
+        # let childTyp = childVector.getColumnType   
+        # let childData = childVector.getData()#duckdb_vector_get_data(list_child);
+        # let childValidity = childVector.getValidity() #duckdb_vector_get_validity(list_child);
+
+        # duckdb_array_type_child_type
+        # duckdb_array_type_array_size
+        for i in 0..<n:
+          if duckdb_validity_row_is_valid(validity, i.idx_t):          
+            var values:seq[Option[int]] = @[]
+            #echo arr[0]
+            for c in 0..<arraySize:
+              let idx = c + i*arraySize
+              #echo idx
+              if duckdb_validity_row_is_valid(childValidity, idx.idx_t):
+                values &= some(childArray[idx].int)
+              else:
+                values &= none(int)
+            yield some(values)
+          else:
+            yield none(seq[Option[int]])
+      else:
+        raise newException(ValueError, "type not supported: " & $childTyp)
+
+    of DUCKDB_TYPE_LIST:
+      let arr = cast[ptr UncheckedArray[duckdb_list_entry]](data)
+      
+      let childVector = new DuckDbVector
+      childVector.handle = duckdb_list_vector_get_child(vector.handle)
+      let childTyp = childVector.getColumnType   
+      let childData = childVector.getData()#duckdb_vector_get_data(list_child);
+      let childValidity = childVector.getValidity() #duckdb_vector_get_validity(list_child);
+
+      case childTyp
+      of DUCKDB_TYPE_TINYINT:
+        let childArray = cast[ptr UncheckedArray[int8]](childData)   # FIXME: This is only valid for the INTEGER case
+
+        for i in 0..<n:
+          if duckdb_validity_row_is_valid(validity, i.idx_t):
+            var values:seq[Option[int]] = @[]
+            for c in 0..<arr[i].length:
+              let idx = arr[i].offset + c 
+              if duckdb_validity_row_is_valid(childValidity, idx):
+                values &= some(childArray[idx].int)
+              else:
+                values &= none(int)
+            yield some(values)
+          else:
+            yield none(seq[Option[int]])
+
+      of DUCKDB_TYPE_SMALLINT:
+        let childArray = cast[ptr UncheckedArray[int16]](childData)   # FIXME: This is only valid for the INTEGER case
+
+        for i in 0..<n:
+          if duckdb_validity_row_is_valid(validity, i.idx_t):
+            var values:seq[Option[int]] = @[]
+            for c in 0..<arr[i].length:
+              let idx = arr[i].offset + c 
+              if duckdb_validity_row_is_valid(childValidity, idx):
+                values &= some(childArray[idx].int)
+              else:
+                values &= none(int)
+            yield some(values)
+          else:
+            yield none(seq[Option[int]])
+
+      of DUCKDB_TYPE_INTEGER:
+        let childArray = cast[ptr UncheckedArray[int32]](childData)   # FIXME: This is only valid for the INTEGER case
+
+        for i in 0..<n:
+          if duckdb_validity_row_is_valid(validity, i.idx_t):
+            var values:seq[Option[int]] = @[]
+            for c in 0..<arr[i].length:
+              let idx = arr[i].offset + c 
+              if duckdb_validity_row_is_valid(childValidity, idx):
+                values &= some(childArray[idx].int)
+              else:
+                values &= none(int)
+            yield some(values)
+          else:
+            yield none(seq[Option[int]])
+
+      of DUCKDB_TYPE_BIGINT:
+        let childArray = cast[ptr UncheckedArray[int64]](childData)   # FIXME: This is only valid for the INTEGER case
+
+        for i in 0..<n:
+          if duckdb_validity_row_is_valid(validity, i.idx_t):
+            var values:seq[Option[int]] = @[]
+            for c in 0..<arr[i].length:
+              let idx = arr[i].offset + c 
+              if duckdb_validity_row_is_valid(childValidity, idx):
+                values &= some(childArray[idx].int)
+              else:
+                values &= none(int)
+            yield some(values)
+          else:
+            yield none(seq[Option[int]])
+      else:
+        raise newException(ValueError, "type not supported in list: " & $childTyp)
+
+    else:  # TODO: to consider all the others INTEGER types
+      raise newException(ValueError, "type not supported: " & $typ)
+
+#-----
 
 #[
-  struct_duckdb_date* {.pure, inheritable, bycopy.} = object
-    days*: int32             ## Generated based on /usr/include/duckdb.h:255:9
-  duckdb_date* = struct_duckdb_date ## Generated based on /usr/include/duckdb.h:257:3
+  struct_duckdb_list_entry* {.pure, inheritable, bycopy.} = object
+    offset*: uint64          ## Generated based on /usr/include/duckdb.h:347:9
+    length*: uint64
 ]#
 
 #[
