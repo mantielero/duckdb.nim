@@ -137,14 +137,7 @@ proc toFloat64*(res:DuckDbResult; col:int = 0; row:int = 0):float64 =
 proc duckdb_value_decimal*(result: ptr duckdb_result; col: idx_t; row: idx_t): duckdb_decimal {.
     cdecl, importc: "duckdb_value_decimal".}
 
-proc duckdb_value_date*(result: ptr duckdb_result; col: idx_t; row: idx_t): duckdb_date {.
-    cdecl, importc: "duckdb_value_date".}
-proc duckdb_value_time*(result: ptr duckdb_result; col: idx_t; row: idx_t): duckdb_time {.
-    cdecl, importc: "duckdb_value_time".}
-proc duckdb_value_timestamp*(result: ptr duckdb_result; col: idx_t; row: idx_t): duckdb_timestamp {.
-    cdecl, importc: "duckdb_value_timestamp".}
-proc duckdb_value_interval*(result: ptr duckdb_result; col: idx_t; row: idx_t): duckdb_interval {.
-    cdecl, importc: "duckdb_value_interval".}
+
 
 
 proc duckdb_value_blob*(result: ptr duckdb_result; col: idx_t; row: idx_t): duckdb_blob {.
