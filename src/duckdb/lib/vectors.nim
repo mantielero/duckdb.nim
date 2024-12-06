@@ -1,7 +1,7 @@
 #https://duckdb.org/docs/archive/1.0/api/c/vector
 import ../wrapper/libduckdb
 import typs, errors
-import std/[options, tables]
+import std/[options, tables, times]
 
 type
   DuckDbDataChunkObj* = object
@@ -348,6 +348,46 @@ iterator getStrings*(res:DbResult; column:int):Option[string] =
     else:  # TODO: to consider all the others INTEGER types
       raise newException(ValueError, "type not supported: " &  $typ)
 
+
+
+iterator getDates*(res:DbResult; column:int):Option[DateTime] =
+  ## iterates over all the floats in a result casting them into float64
+  for chunk in res.chunks:
+    let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+    assert column < nCols
+    
+    let n = chunk.getSize() 
+
+    let vector = new DuckDbVector
+    vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+    let typ = vector.getColumnType
+    let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+    let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+    case typ
+    of DUCKDB_TYPE_DATE:
+      let arr = cast[ptr UncheckedArray[duckdb_date]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          let days = arr[i].days
+          yield some(dateTime(1970, 1.Month,1.MonthdayRange, zone=utc()) + days.days)
+        else:
+          yield none(DateTime)
+    of DUCKDB_TYPE_TIMESTAMP:
+      let arr = cast[ptr UncheckedArray[duckdb_timestamp]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          let micros = arr[i].micros
+          yield some(dateTime(1970, 1.Month,1.MonthdayRange, zone=utc()) + micros.microseconds)
+        else:
+          yield none(DateTime)      
+    else:  # TODO: to consider all the others INTEGER types
+      raise newException(ValueError, "type not supported: " & $typ)
+
+#[
+  struct_duckdb_date* {.pure, inheritable, bycopy.} = object
+    days*: int32             ## Generated based on /usr/include/duckdb.h:255:9
+  duckdb_date* = struct_duckdb_date ## Generated based on /usr/include/duckdb.h:257:3
+]#
 
 #[
     for row in 0..<chunk.getSize():
