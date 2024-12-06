@@ -409,6 +409,35 @@ iterator getTimes*(res:DbResult; column:int):Option[Time] =
     else:  # TODO: to consider all the others INTEGER types
       raise newException(ValueError, "type not supported: " & $typ)
 
+iterator getTimeIntervals*(res:DbResult; column:int):Option[TimeInterval] =
+  ## iterates over all the floats in a result casting them into float64
+  for chunk in res.chunks:
+    let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+    assert column < nCols
+    
+    let n = chunk.getSize() 
+
+    let vector = new DuckDbVector
+    vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+    let typ = vector.getColumnType
+    let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+    let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+    case typ
+    of DUCKDB_TYPE_INTERVAL:
+      let arr = cast[ptr UncheckedArray[duckdb_interval]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          #let micros = arr[i].micros.float
+          yield some(initTimeInterval( microseconds = arr[i].micros.int,  
+                                       days         = arr[i].days.int, 
+                                       months       = arr[i].months.int)  )
+        else:
+          yield none(TimeInterval)
+
+    else:  # TODO: to consider all the others INTEGER types
+      raise newException(ValueError, "type not supported: " & $typ)
+
+
 #[
   struct_duckdb_date* {.pure, inheritable, bycopy.} = object
     days*: int32             ## Generated based on /usr/include/duckdb.h:255:9
