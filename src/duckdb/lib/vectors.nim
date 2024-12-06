@@ -3,7 +3,6 @@ import ../wrapper/libduckdb
 import typs, errors
 import std/[options, tables]
 
-
 type
   DuckDbDataChunkObj* = object
     handle: duckdb_data_chunk
@@ -30,6 +29,46 @@ proc isExhausted*(chunk: DuckDbDataChunk): bool =
     return true
   return false
 
+# iterator getChunks*(res:DuckDbResult): DuckDbDataChunk =
+#   while true:
+#     let chunk = new DuckDbDataChunk
+#     chunk.handle = duckdb_fetch_chunk(res.handle)
+#     if chunk.handle == nil:
+#       break
+#     yield chunk
+proc getColumnsCount*(res:DuckDbResult):int =
+  let chunk = res.fetchChunk()
+  return duckdb_data_chunk_get_column_count(chunk.handle).int
+
+
+type
+  DbResultObj* = object
+    res*:DuckDbResult
+    chunks*:seq[DuckDbDataChunk]
+    rows*:seq[int]
+    colNames*:seq[string]
+    colTypes*:seq[duckdb_type]
+  DbResult* = ref DbResultObj
+
+proc toDbResult*(res:DuckDbResult): DbResult =
+  result = new DbResult
+  result.res = res
+  while true:
+    let chunk = new DuckDbDataChunk
+    chunk.handle = duckdb_fetch_chunk(res.handle)
+    if chunk.handle == nil:
+      break
+    result.chunks &= chunk
+    result.rows &= duckdb_row_count(res.handle.addr).int
+  let nCols = duckdb_column_count(res.handle.addr) #res.getColumnsCount()
+  #echo nCols
+  for col in 0 ..< nCols:
+    #echo $duckdb_column_name(res.handle.addr, col.idx_t)
+    result.colNames &= $duckdb_column_name(res.handle.addr, col.idx_t)
+    result.colTypes &= duckdb_column_type(res.handle.addr, col.idx_t)
+
+
+
 proc getSize*(chunk: DuckDbDataChunk):int =
   duckdb_data_chunk_get_size(chunk.handle).int
 
@@ -37,24 +76,193 @@ proc getVector*(chunk: DuckDbDataChunk; idx:int): DuckDbVector =
   result = new DuckDbVector
   result.handle = duckdb_data_chunk_get_vector(chunk.handle, idx.idx_t)
 
+# proc getSize*(vector: DuckDbVector):int =
+#   let logicalType = duckdb_vector_get_column_type(vector.handle)
+#   duckdb_data_chunk_get_size(chunk.handle).int
+
+# proc getVectors*(res:DuckDbResult):seq[DuckDbVector] =
+#   result = @[]
+#   while true:
+#     let chunk = new DuckDbDataChunk
+#     chunk.handle = duckdb_fetch_chunk(res.handle)    
+#     if chunk.handle == nil:
+#       break
+#     var nCols = duckdb_data_chunk_get_column_count(chunk.handle)
+#     echo nCols
+#     for col in 0..<nCols: #chunk.getSize():
+#       let vector = new DuckDbVector
+#       vector.handle = duckdb_data_chunk_get_vector(chunk.handle, col.idx_t)
+#       result &= vector
+
+
+
+#---------------------------------
 
 proc getColumnType*(vector:DuckDbVector): duckdb_type = #duckdb_logical_type =
   duckdb_vector_get_column_type(vector.handle).duckdb_get_type_id
 
-proc getData*(vector:DuckDbVector) = #: DuckDbVectorData =
-  #result = new DuckDbVectorData
-  let vectorData = duckdb_vector_get_data(vector.handle) # this is a pointer
-  # int64_t *vector_data = (int64_t *) duckdb_vector_get_data(res_col);
-  let vectorValidity = duckdb_vector_get_validity(vector.handle)
-  #uint64_t *vector_validity = duckdb_vector_get_validity(res_col);
+# proc getData*(vector:DuckDbVector) = #: DuckDbVectorData =
+#   #result = new DuckDbVectorData
+#   let vectorData = duckdb_vector_get_data(vector.handle) # this is a pointer
+#   # int64_t *vector_data = (int64_t *) duckdb_vector_get_data(res_col);
+#   let vectorValidity = duckdb_vector_get_validity(vector.handle)
+#   #uint64_t *vector_validity = duckdb_vector_get_validity(res_col);
+
+
+#---------------------------------
+# This is invented just for Nim
+# type
+#   VectorObj* = object
+#     typ*:duckdb_type
+#     data*:pointer
+#     validity*:ptr uint64
+#     n*:int
+
+#   Vector* = ref VectorObj
+
+#   ColumnObj* = object
+#     col*:int
+#     name*:string
+#     vectors*:seq[Vector]
+#     #typ*:duckdb_type
+#     #vectors*:seq[tuple[n:int]]
+#   Column* = ref ColumnObj
+
+proc getData*(vector:DuckDbVector):pointer =
+  duckdb_vector_get_data(vector.handle)
+
+proc getValidity*(vector:DuckDbVector):ptr uint64 =
+  duckdb_vector_get_validity(vector.handle)
+
+# proc getColumn*(res:DuckDbResult; column:int):Column =
+#   result = new Column
+#   result.col = column
+#   var nCols = -1
+#   var firstVector = true
+#   for chunk in res.getChunks():
+#     if nCols == -1:
+#       nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+#     let n = chunk.getSize()  # Number of elements in the vector
+#     assert column < nCols
+
+#     # Get the vector
+#     let vector = new DuckDbVector
+#     vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+
+#     #if firstVector:
+#     let v = new Vector
+#     v.typ = vector.getColumnType
+#     v.data = vector.getData() # duckdb_vector_get_data(vector.handle)
+#     v.validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+#     v.n = n   
+#     let arr = cast[ptr UncheckedArray[int32]](v.data)
+#     echo arr[0]
+#     echo arr[1]    
+#     #  firstVector = false
+#     result.vectors &= v
+
+# iterator getInts*(res:DuckDbResult; column:int):Option[int64] =
+#   while true:
+#     let chunk = new DuckDbDataChunk
+#     chunk.handle = duckdb_fetch_chunk(res.handle)
+
+#     if chunk.handle == nil:
+#       break
+#     #duckdb_data_chunk_reset(chunk.handle)
+#     let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+#     assert column < nCols
+    
+#     let n = chunk.getSize() 
+
+#     let vector = new DuckDbVector
+#     vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+#     let typ = vector.getColumnType
+#     let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+#     let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+#     case typ
+#     of DUCKDB_TYPE_INTEGER:
+#       let arr = cast[ptr UncheckedArray[int32]](data)
+#       for i in 0..<n:
+#         if duckdb_validity_row_is_valid(validity, i.idx_t):
+#           yield some(arr[i].int64)
+#         else:
+#           yield none(int64)
+#     else:
+#       discard
+
+iterator getInts*(res:DbResult; column:int):Option[int64] =
+  for chunk in res.chunks:
+    let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+    assert column < nCols
+    
+    let n = chunk.getSize() 
+
+    let vector = new DuckDbVector
+    vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+    let typ = vector.getColumnType
+    let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+    let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+    case typ
+    of DUCKDB_TYPE_TINYINT:
+      let arr = cast[ptr UncheckedArray[int8]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some(arr[i].int64)
+        else:
+          yield none(int64)
+    of DUCKDB_TYPE_SMALLINT:
+      let arr = cast[ptr UncheckedArray[int16]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some(arr[i].int64)
+        else:
+          yield none(int64)
+    of DUCKDB_TYPE_INTEGER:
+      let arr = cast[ptr UncheckedArray[int32]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some(arr[i].int64)
+        else:
+          yield none(int64)
+    of DUCKDB_TYPE_BIGINT:
+      let arr = cast[ptr UncheckedArray[int64]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some(arr[i].int64)
+        else:
+          yield none(int64)
+    else:  # TODO: to consider all the others INTEGER types
+      discard
 
 
 
+# iterator getInts*(col:Column):Option[int64] =
+#   for v in col.vectors:
+#     case v.typ
+#     of DUCKDB_TYPE_INTEGER:
+#       let arr = cast[ptr UncheckedArray[int32]](v.data)
+#       echo arr[0]
+#       echo arr[1]
+#       for i in 0..<v.n:
+#         if duckdb_validity_row_is_valid(v.validity, i.idx_t):
+#           yield some(arr[i].int64)
+#         else:
+#           yield none(int64)
+#     else:
+#       discard
+
+#proc toInt*(i:int):int =
+
+
+#-----------
+
+# Itereate over specific columns' types =======================================================
 iterator getItemsAsInt64*(res: DuckDbResult; col:int):Option[int64] =
   while true:
     var chunk = res.fetchChunk  
     if chunk.isExhausted:
       break
+    
     
     var vector = chunk.getVector(col)
     var vectorTyp = vector.getColumnType
