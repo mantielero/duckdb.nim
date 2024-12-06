@@ -191,6 +191,7 @@ proc getValidity*(vector:DuckDbVector):ptr uint64 =
 #       discard
 
 iterator getInts*(res:DbResult; column:int):Option[int64] =
+  ## iterates over all the integers in a result casting them into int64
   for chunk in res.chunks:
     let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
     assert column < nCols
@@ -232,27 +233,107 @@ iterator getInts*(res:DbResult; column:int):Option[int64] =
         else:
           yield none(int64)
     else:  # TODO: to consider all the others INTEGER types
-      discard
+      raise newException(ValueError, "type not supported: " & $typ)
+
+iterator getUints*(res:DbResult; column:int):Option[uint64] =
+  ## iterates over all the unsigned integers in a result casting them into uint64  
+  for chunk in res.chunks:
+    let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+    assert column < nCols
+    
+    let n = chunk.getSize() 
+
+    let vector = new DuckDbVector
+    vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+    let typ = vector.getColumnType
+    let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+    let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+    case typ
+    of DUCKDB_TYPE_UTINYINT:
+      let arr = cast[ptr UncheckedArray[uint8]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some(arr[i].uint64)
+        else:
+          yield none(uint64)
+    of DUCKDB_TYPE_USMALLINT:
+      let arr = cast[ptr UncheckedArray[uint16]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some(arr[i].uint64)
+        else:
+          yield none(uint64)
+    of DUCKDB_TYPE_UINTEGER:
+      let arr = cast[ptr UncheckedArray[uint32]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some(arr[i].uint64)
+        else:
+          yield none(uint64)
+    of DUCKDB_TYPE_UBIGINT:
+      let arr = cast[ptr UncheckedArray[uint64]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some(arr[i].uint64)
+        else:
+          yield none(uint64)
+    else:  # TODO: to consider all the others INTEGER types
+      raise newException(ValueError, "type not supported: " &  $typ)
+
+# TODO: iterators specific for INT8, INT16, INY32, UINT8. UINT16, UINT32
 
 
+iterator getStrings*(res:DbResult; column:int):Option[string] =
+  ## iterates over all the unsigned integers in a result casting them into uint64  
+  for chunk in res.chunks:
+    let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+    assert column < nCols
+    
+    let n = chunk.getSize() 
 
-# iterator getInts*(col:Column):Option[int64] =
-#   for v in col.vectors:
-#     case v.typ
-#     of DUCKDB_TYPE_INTEGER:
-#       let arr = cast[ptr UncheckedArray[int32]](v.data)
-#       echo arr[0]
-#       echo arr[1]
-#       for i in 0..<v.n:
-#         if duckdb_validity_row_is_valid(v.validity, i.idx_t):
-#           yield some(arr[i].int64)
-#         else:
-#           yield none(int64)
-#     else:
-#       discard
+    let vector = new DuckDbVector
+    vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+    let typ = vector.getColumnType
+    let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+    let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+    case typ
+    of DUCKDB_TYPE_VARCHAR:
+      let arr = cast[ptr UncheckedArray[duckdb_string_t]](data)
+      for row in 0..<n:
+        if duckdb_validity_row_is_valid(validity, row.idx_t):
+          if duckdb_string_is_inlined(arr[row]): # inline
+            let pInlined = arr[row].value.inlined.inlined
+            yield some($cast[cstring](unsafeAddr(pInlined[0])))
+          else:
+            let nchars = arr[row].value.pointer_field.length
+            #echo n
+            var tmp = $cast[cstring](arr[row].value.pointer_field.ptr_field)
+            setLen(tmp, nchars)
+            yield some(tmp)
+        else:
+          yield none(string)
 
-#proc toInt*(i:int):int =
+    else:  # TODO: to consider all the others INTEGER types
+      raise newException(ValueError, "type not supported: " &  $typ)
 
+
+#[
+    for row in 0..<chunk.getSize():
+      if duckdb_validity_row_is_valid(vectorValidity, row.uint64):
+        if duckdb_string_is_inlined(vectorDataArray[row]): # inline
+          let pInlined = vectorDataArray[row].value.inlined.inlined
+          yield some($cast[cstring](unsafeAddr(pInlined[0])))
+        else:
+          let n = vectorDataArray[row].value.pointer_field.length
+          #echo n
+          var tmp = $cast[cstring](vectorDataArray[row].value.pointer_field.ptr_field)
+          setLen(tmp, n)
+          yield some(tmp)
+
+      else:
+        yield none(string)
+    duckdb_destroy_data_chunk(chunk.handle.addr)   
+]#
 
 #-----------
 
