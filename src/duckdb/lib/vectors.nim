@@ -190,6 +190,31 @@ proc getValidity*(vector:DuckDbVector):ptr uint64 =
 #     else:
 #       discard
 
+iterator getBooleans*(res:DbResult; column:int):Option[bool] =
+  ## iterates over all the floats in a result casting them into float64
+  for chunk in res.chunks:
+    let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+    assert column < nCols
+    
+    let n = chunk.getSize() 
+
+    let vector = new DuckDbVector
+    vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+    let typ = vector.getColumnType
+    let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+    let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+    case typ
+    of DUCKDB_TYPE_BOOLEAN:
+      let arr = cast[ptr UncheckedArray[bool]](data)
+      for i in 0..<n:
+        if duckdb_validity_row_is_valid(validity, i.idx_t):
+          yield some(arr[i].bool)
+        else:
+          yield none(bool)
+
+    else:  # TODO: to consider all the others INTEGER types
+      raise newException(ValueError, "type not supported: " & $typ)
+
 iterator getInts*(res:DbResult; column:int):Option[int64] =
   ## iterates over all the integers in a result casting them into int64
   for chunk in res.chunks:
