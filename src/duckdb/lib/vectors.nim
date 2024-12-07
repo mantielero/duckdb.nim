@@ -673,30 +673,6 @@ iterator getSeqsInts*(res:DbResult; column:int):Option[seq[Option[int]]] =
       raise newException(ValueError, "type not supported: " & $typ)
 
 #-----
-# proc getEnumValues*(res:DbResult; column:int):seq[string] =
-#   ## iterates over all the floats in a result casting them into float64
-#   for chunk in res.chunks:
-#     let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
-#     assert column < nCols
-    
-#     let n = chunk.getSize() 
-
-#     let vector = new DuckDbVector
-#     vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
-#     let typ = vector.getColumnType
-#     let data = vector.getData() # duckdb_vector_get_data(vector.handle)
-#     let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
-
-#     let vectorLogicalType = duckdb_vector_get_column_type(vector.handle)
-#     let enumTyp = duckdb_enum_internal_type(vectorLogicalType)
-#     let enumSize = duckdb_enum_dictionary_size(vectorLogicalType).int
-#     result = @[]
-#     for idx in 0..<enumSize:
-#       var nameAddress = duckdb_enum_dictionary_value(vectorLogicalType, idx)
-#       var tmp = cast[cstring](nameAddress)
-#       result &= $tmp
-
-
 iterator getEnums*(res:DbResult; column:int):Option[tuple[idx:uint;value:string]] =
   ## iterates over all the floats in a result casting them into float64
   for chunk in res.chunks:
@@ -726,8 +702,6 @@ iterator getEnums*(res:DbResult; column:int):Option[tuple[idx:uint;value:string]
       for i in 0..<n:
         if duckdb_validity_row_is_valid(validity, i.idx_t):
           yield some((arr[i].uint, items[arr[i]]))
-          #let micros = arr[i].micros.float
-          #yield some(fromUnixFloat(micros / 1000000.0 ))
         else:
           yield none(tuple[idx:uint;value:string])
 
@@ -736,27 +710,224 @@ iterator getEnums*(res:DbResult; column:int):Option[tuple[idx:uint;value:string]
 
 #--------
 #[
-
-uint32_t duckdb_enum_dictionary_size(duckdb_logical_type type);
-char *duckdb_enum_dictionary_value(duckdb_logical_type type, idx_t index);
+Maps are just lists of {key: V, value: K} structs, and 
+unions are just structs with a special "tag" field as first member, 
+so you should be able to use the same functions as when accessing lists and structs.
 ]#
 
-#[
-    for row in 0..<chunk.getSize():
-      if duckdb_validity_row_is_valid(vectorValidity, row.uint64):
-        if duckdb_string_is_inlined(vectorDataArray[row]): # inline
-          let pInlined = vectorDataArray[row].value.inlined.inlined
-          yield some($cast[cstring](unsafeAddr(pInlined[0])))
-        else:
-          let n = vectorDataArray[row].value.pointer_field.length
-          #echo n
-          var tmp = $cast[cstring](vectorDataArray[row].value.pointer_field.ptr_field)
-          setLen(tmp, n)
-          yield some(tmp)
+iterator getMaps*(res:DbResult; column:int):Option[tuple[idx:uint;value:string]] =
+  ## iterates over all the floats in a result casting them into float64
+  for chunk in res.chunks:
+    let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+    assert column < nCols
+    
+    let n = chunk.getSize() 
 
-      else:
-        yield none(string)
-    duckdb_destroy_data_chunk(chunk.handle.addr)   
+    let vector = new DuckDbVector
+    vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+    let typ = vector.getColumnType
+    let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+    let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+
+    let vectorLogicalType = duckdb_vector_get_column_type(vector.handle)
+    let keyTyp   = duckdb_map_type_key_type(vectorLogicalType).duckdb_get_type_id
+    let valueTyp = duckdb_map_type_value_type(vectorLogicalType).duckdb_get_type_id
+    echo $keyTyp
+    echo $valueTyp
+    var items:seq[string] = @[]
+    # for idx in 0..<enumSize:
+    #   var nameAddress = duckdb_enum_dictionary_value(vectorLogicalType, idx.idx_t)
+    #   var tmp = cast[cstring](nameAddress)
+    #   items &= $tmp
+    # echo items
+    case typ
+    of DUCKDB_TYPE_MAP:
+      #let arr = cast[ptr UncheckedArray[uint8]](data)
+      let childVector = new DuckDbVector
+
+      childVector.handle = duckdb_data_chunk_get_vector(chunk.handle, 0.idx_t)
+      let childData = childVector.getData()
+      let childValidity = childVector.getValidity() #duckdb_vector_get_validity(childVector);
+
+      # for i in 0..<n:
+      #   if duckdb_validity_row_is_valid(validity, i.idx_t):
+      #     yield some((arr[i].uint, items[arr[i]]))
+      #   else:
+      #     yield none(tuple[idx:uint;value:string])
+
+    else:  # TODO: to consider all the others INTEGER types
+      raise newException(ValueError, "type not supported: " & $typ)
+
+proc getChild(vector:DuckDbVector; col:Natural):DuckDbVector =
+  result = new DuckDbVector
+  result.handle = duckdb_struct_vector_get_child(vector.handle, col.idx_t)
+
+type
+  # DuckStructObj = object
+  #   vector*:DuckDbVector
+  #   kv*: Table[string, tuple[col:int; typ:duckdb_type; validity:ptr uint64]]
+  #   row*:int
+  # DuckStruct* = ref DuckStructObj
+
+  FieldObj* = object
+    name*: string
+    col*: int
+    typ*: duckdb_type
+    validity*: ptr uint64
+    vector*: DuckDbVector
+    data*: pointer
+
+  Field* = ref FieldObj
+
+  #DuckDbStruct* = seq[tuple[name:string; typ:duckdb_type; validity: ptr uint64]]
+  FieldsObj* = object
+    fields*:seq[Field]
+    colNames*:seq[string]
+    namecol*:Table[string, int]
+  Fields* = ref FieldsObj
+
+  DuckStruct* = tuple[fields:Fields; row:int]
+
+type
+  # ValueKind = enum  # the different node types
+  #   nkInt,          # a leaf with an integer value
+  #   nkFloat,        # a leaf with a float value
+  #   nkString,       # a leaf with a string value
+  #   nkAdd,          # an addition
+  #   nkSub,          # a subtraction
+  #   nkIf            # an if statement
+  Value* = ref object
+    case kind*: duckdb_type  # the `kind` field is the discriminator
+    of DUCKDB_TYPE_BOOLEAN: boolVal*: bool
+    of DUCKDB_TYPE_TINYINT: int8Val*: int8
+    of DUCKDB_TYPE_SMALLINT: int16Val*: int16
+    of DUCKDB_TYPE_INTEGER: int32Val*: int32
+    of DUCKDB_TYPE_BIGINT: int64Val*: int64
+    of DUCKDB_TYPE_UTINYINT: uint8Val*: uint8
+    of DUCKDB_TYPE_USMALLINT: uint16Val*: uint16
+    of DUCKDB_TYPE_UINTEGER: uint32Val*: uint32
+    of DUCKDB_TYPE_UBIGINT: uint64Val*: uint64
+    of DUCKDB_TYPE_FLOAT: floatVal*: float32
+    of DUCKDB_TYPE_DOUBLE: doubleVal*: float64    
+    of DUCKDB_TYPE_VARCHAR: stringVal*: string
+    else:
+      todo:string
+    # of DUCKDB_TYPE_INVALID, DUCKDB_TYPE_TIMESTAMP, DUCKDB_TYPE_DATE,
+    #    DUCKDB_TYPE_TIME, DUCKDB_TYPE_INTERVAL, DUCKDB_TYPE_HUGEINT, DUCKDB_TYPE_UHUGEINT,
+    #    DUCKDB_TYPE_BLOB, DUCKDB_TYPE_DECIMAL,
+    #    DUCKDB_TYPE_TIMESTAMP_S, DUCKDB_TYPE_TIMESTAMP_MS, DUCKDB_TYPE_TIMESTAMP_NS,
+    #    DUCKDB_TYPE_ENUM, DUCKDB_TYPE_LIST, DUCKDB_TYPE_STRUCT,
+    #    DUCKDB_TYPE_MAP,  DUCKDB_TYPE_ARRAY,  DUCKDB_TYPE_UUID,  DUCKDB_TYPE_UNION,
+    #    DUCKDB_TYPE_BIT, DUCKDB_TYPE_TIME_TZ, DUCKDB_TYPE_TIMESTAMP_TZ: todo: string
+
+#[
+
+]#
+
+iterator getStructs*(res:DbResult; column:int):Option[Table[string, Option[Value]]] =
+  ## iterates over all the floats in a result casting them into float64
+  for chunk in res.chunks:
+    let nCols = duckdb_data_chunk_get_column_count(chunk.handle).int
+    assert column < nCols
+    
+    let n = chunk.getSize() 
+
+    let vector = new DuckDbVector
+    vector.handle = duckdb_data_chunk_get_vector(chunk.handle, column.idx_t)
+    let typ = vector.getColumnType
+    let data = vector.getData() # duckdb_vector_get_data(vector.handle)
+    let validity = vector.getValidity() #duckdb_vector_get_validity(vector.handle)  
+
+    let vectorLogicalType = duckdb_vector_get_column_type(vector.handle)
+    #let keyTyp   = duckdb_map_type_key_type(vectorLogicalType).duckdb_get_type_id
+    #let valueTyp = duckdb_map_type_value_type(vectorLogicalType).duckdb_get_type_id
+    #echo $keyTyp
+    #echo $valueTyp
+
+    let childNcols = duckdb_struct_type_child_count(vectorLogicalType).int
+    #echo childNcols
+    #let vectorChild = vector.getChild(0)
+
+    # get the data for each specific col in the struct
+    var fields = new Fields
+    for col in 0..<childNcols:
+      var field = new Field
+      field.vector = vector.getChild(col)
+      field.data = duckdb_vector_get_data(field.vector.handle)
+      field.validity = duckdb_vector_get_validity(field.vector.handle)
+      field.typ = field.vector.getColumnType
+      echo field.typ
+      field.name = $duckdb_struct_type_child_name(vectorLogicalType, col.idx_t)
+      
+      fields.fields &= field
+      fields.colNames &= field.name 
+      fields.namecol[field.name] = col
+
+    case typ
+    of DUCKDB_TYPE_STRUCT:
+      for row in 0..<n:
+        if duckdb_validity_row_is_valid(validity, row.uint64):
+          var tmp:Table[string, Option[Value]]
+          for col in 0..<childNcols:
+            let name = fields.colNames[col]
+            let field = fields.fields[col]
+            #var value:Value
+            case field.typ
+            of DUCKDB_TYPE_VARCHAR: #     of DUCKDB_TYPE_VARCHAR: stringVal: string
+              let arr = cast[ptr UncheckedArray[duckdb_string_t]](field.data)
+              if duckdb_validity_row_is_valid(field.validity, row.idx_t):
+                var cad:string
+                if duckdb_string_is_inlined(arr[row]): # inline
+                  let pInlined = arr[row].value.inlined.inlined
+                  cad = $cast[cstring](unsafeAddr(pInlined[0]))
+                  #yield some($cast[cstring](unsafeAddr(pInlined[0])))
+                  #tmp[name] = value
+                else:
+                  let nchars = arr[row].value.pointer_field.length
+                  cad = $cast[cstring](arr[row].value.pointer_field.ptr_field)
+                  setLen(cad, nchars)
+                  #tmp[name] = some(tmp)
+                #value = 
+                tmp[name] = some( Value(kind: DUCKDB_TYPE_VARCHAR, stringVal: cad) )
+              else:
+                tmp[name] = none(Value)
+            of DUCKDB_TYPE_INTEGER:
+              var arr = cast[ptr UncheckedArray[int32]](field.data)
+              var val:Option[Value]
+              if duckdb_validity_row_is_valid(field.validity, row.idx_t):
+                val = some( Value(kind: DUCKDB_TYPE_INTEGER, int32Val: arr[row]) )
+              else:
+                val = none(Value)
+
+              tmp[name] = val
+            else:
+              discard
+          yield some(tmp)
+                          
+        else:
+          yield none(Table[string, Option[Value]])
+
+    else:  # TODO: to consider all the others INTEGER types
+      raise newException(ValueError, "type not supported: " & $typ)
+
+
+#[
+        if duckdb_validity_row_is_valid(validity, row.idx_t):
+          if duckdb_string_is_inlined(arr[row]): # inline
+            let pInlined = arr[row].value.inlined.inlined
+            yield some($cast[cstring](unsafeAddr(pInlined[0])))
+          else:
+            let nchars = arr[row].value.pointer_field.length
+            #echo n
+            var tmp = $cast[cstring](arr[row].value.pointer_field.ptr_field)
+            setLen(tmp, nchars)
+            yield some(tmp)
+]#
+
+
+#[
+duckdb_logical_type duckdb_map_type_key_type(duckdb_logical_type type);
+duckdb_logical_type duckdb_map_type_value_type(duckdb_logical_type type);
 ]#
 
 #-----------
@@ -814,65 +985,40 @@ char *duckdb_enum_dictionary_value(duckdb_logical_type type, idx_t index);
 #         yield none(string)
 #     duckdb_destroy_data_chunk(chunk.handle.addr)    
 
-proc getChild(vector:DuckDbVector; col:Natural):DuckDbVector =
-  result = new DuckDbVector
-  result.handle = duckdb_struct_vector_get_child(vector.handle, col.idx_t)
 
 
 
 
 
 
-type
-  # DuckStructObj = object
-  #   vector*:DuckDbVector
-  #   kv*: Table[string, tuple[col:int; typ:duckdb_type; validity:ptr uint64]]
-  #   row*:int
-  # DuckStruct* = ref DuckStructObj
-
-  FieldObj* = object
-    name*: string
-    col*: int
-    typ*: duckdb_type
-    validity*: ptr uint64
-    vector*: DuckDbVector
-    data*: pointer
-
-  Field* = ref FieldObj
-
-  #DuckDbStruct* = seq[tuple[name:string; typ:duckdb_type; validity: ptr uint64]]
-  FieldsObj* = object
-    fields*:seq[Field]
-    namecol*:Table[string, int]
-  Fields* = ref FieldsObj
-
-  DuckStruct* = tuple[fields:Fields; row:int]
-
-proc getInt64*(s:DuckStruct; name:string):Option[int64] =
-  let fields = s.fields
-  let row = s.row
-  let col = fields.namecol[name]
-  var tmp = fields.fields[col]
-  assert tmp.typ == DUCKDB_TYPE_BIGINT
-  #var col = tmp.col
-
-  #let vCol = tmp.vector.getChild(col)
-  let vData = tmp.data #duckdb_vector_get_data(vCol.handle)
-  let vValidity = tmp.validity #duckdb_vector_get_validity(vCol.handle)
 
 
-  let vectorDataArray = cast[ptr UncheckedArray[int64]](vData)
-  #echo "----"
-  if duckdb_validity_row_is_valid(vValidity, row.uint64):
-    return some(vectorDataArray[row])
-  else:
-    return none(int64)
-  # for row in 0..<chunk.getSize():
-  #   if duckdb_validity_row_is_valid(vValidity, row.uint64):
-  #     #echo cast[ptr UncheckedArray[int64]](vectorData)[0]
-  #     yield some(vectorDataArray[row])
-  #   else:
-  #     yield none(int64)
+
+# proc getInt64*(s:DuckStruct; name:string):Option[int64] =
+#   let fields = s.fields
+#   let row = s.row
+#   let col = fields.namecol[name]
+#   var tmp = fields.fields[col]
+#   assert tmp.typ == DUCKDB_TYPE_BIGINT
+#   #var col = tmp.col
+
+#   #let vCol = tmp.vector.getChild(col)
+#   let vData = tmp.data #duckdb_vector_get_data(vCol.handle)
+#   let vValidity = tmp.validity #duckdb_vector_get_validity(vCol.handle)
+
+
+#   let vectorDataArray = cast[ptr UncheckedArray[int64]](vData)
+#   #echo "----"
+#   if duckdb_validity_row_is_valid(vValidity, row.uint64):
+#     return some(vectorDataArray[row])
+#   else:
+#     return none(int64)
+#   # for row in 0..<chunk.getSize():
+#   #   if duckdb_validity_row_is_valid(vValidity, row.uint64):
+#   #     #echo cast[ptr UncheckedArray[int64]](vectorData)[0]
+#   #     yield some(vectorDataArray[row])
+#   #   else:
+#   #     yield none(int64)
 
 
 
