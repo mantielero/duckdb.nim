@@ -112,7 +112,7 @@ nimble test
   - [ ] ... 
 
 #### Struct
-- [ ] STRUCT
+- [-] STRUCT: basic support
 
 #### Map
 - [ ] MAP
